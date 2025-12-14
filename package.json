@@ -13,13 +13,16 @@
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/auth-helpers-react": "^0.5.0",
     "@supabase/supabase-js": "^2.84.0",
+    "@techstark/opencv-js": "^4.12.0-release.1",
     "browser-image-compression": "^2.0.2",
     "lucide-react": "^0.555.0",
     "next": "^16.0.10",
+    "opencv.js": "^1.2.1",
     "puppeteer": "^24.31.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "react-easy-crop": "^5.5.6"
+    "react-easy-crop": "^5.5.6",
+    "react-webcam": "^7.2.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.17",
