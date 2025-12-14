@@ -13,25 +13,30 @@ export default function Home() {
   const [extractedData, setExtractedData] = useState<any>(null);
   const [showCamera, setShowCamera] = useState(false);
 
-  // NEW STATES for ZoneViewer
+  // ZONES (Cropped regions)
   const [zones, setZones] = useState<any[]>([]);
   const [zonesImages, setZonesImages] = useState<string[]>([]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  /* ----------------------------------------
+     HANDLE MANUAL FILE UPLOAD
+  -----------------------------------------*/
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      handleUpload(file);
-    }
+    if (file) handleUpload(file);
   };
 
+  /* ----------------------------------------
+     OCR Processing
+  -----------------------------------------*/
   const handleUpload = async (file: File) => {
     setIsProcessing(true);
 
     const url = URL.createObjectURL(file);
     setCapturedImage(url);
+
     setOcrResult(null);
     setExtractedData(null);
     setZones([]);
@@ -41,16 +46,17 @@ export default function Home() {
       const result = await sendToOCR(file);
       setOcrResult(result);
 
-      // Extract zones
+      // --- Extract zone texts ---
       if (result?.ocr_result) setZones(result.ocr_result);
+
+      // --- Extract cropped zone images ---
       if (result?.zones_images) setZonesImages(result.zones_images);
 
-      // Extract useful text for parsing
+      // --- Extract CNI fields ---
       if (result?.ocr_result) {
         const flat = Object.assign({}, ...result.ocr_result);
-        const text = Object.values(flat).map((v) => String(v)).join(" ");
-        const parsed = extract_cni_data(text);
-        setExtractedData(parsed);
+        const text = Object.values(flat).map(String).join(" ");
+        setExtractedData(extract_cni_data(text));
       }
 
     } catch (e) {
@@ -61,7 +67,9 @@ export default function Home() {
     }
   };
 
-  // Draw bounding boxes
+  /* ----------------------------------------
+     DRAW BOXES ON CANVAS (from OCR)
+  -----------------------------------------*/
   useEffect(() => {
     if (!capturedImage || !canvasRef.current) return;
 
@@ -70,11 +78,11 @@ export default function Home() {
 
     img.onload = () => {
       const canvas = canvasRef.current!;
-      canvas.width = img.width;
-      canvas.height = img.height;
-
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
+
+      canvas.width = img.width;
+      canvas.height = img.height;
 
       ctx.drawImage(img, 0, 0);
 
@@ -91,24 +99,30 @@ export default function Home() {
     };
   }, [capturedImage, ocrResult]);
 
+  /* ----------------------------------------
+     RENDER
+  -----------------------------------------*/
   return (
     <div className="p-4 max-w-xl mx-auto flex flex-col items-center min-h-screen bg-gray-50">
       <h1 className="text-3xl font-bold mb-6 text-gray-800">Scanner CNI Algérienne</h1>
 
+      {/* ======================= NO IMAGE YET ======================= */}
       {!capturedImage ? (
         <div className="w-full flex flex-col gap-4">
+
+          {/* CAMERA HIDDEN OR SHOWN */}
           {!showCamera ? (
             <>
               <button
                 onClick={() => setShowCamera(true)}
-                className="w-full py-4 bg-blue-600 text-white font-bold rounded-lg shadow-md hover:bg-blue-700 transition"
+                className="w-full py-4 bg-blue-600 text-white font-bold rounded-lg shadow-md hover:bg-blue-700"
               >
                 📸 Prendre une photo
               </button>
 
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full py-4 bg-green-600 text-white font-bold rounded-lg shadow-md hover:bg-green-700 transition"
+                className="w-full py-4 bg-green-600 text-white font-bold rounded-lg shadow-md hover:bg-green-700"
               >
                 📁 Importer une image
               </button>
@@ -123,7 +137,9 @@ export default function Home() {
             </>
           ) : (
             <>
+              {/* ⭐ SmartScanner now uses "onCapture" properly */}
               <SmartScanner onCapture={handleUpload} />
+
               <button
                 onClick={() => setShowCamera(false)}
                 className="w-full py-3 bg-gray-500 text-white rounded-lg font-semibold hover:bg-gray-600"
@@ -134,8 +150,10 @@ export default function Home() {
           )}
         </div>
       ) : (
+        /* ======================= IMAGE LOADED ======================= */
         <div className="w-full flex flex-col gap-6">
 
+          {/* IMAGE + BOXES */}
           <div className="relative w-full bg-black rounded-lg overflow-hidden shadow-lg border border-gray-300">
             {isProcessing && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white backdrop-blur-sm z-20">
@@ -146,6 +164,7 @@ export default function Home() {
             <canvas ref={canvasRef} className="w-full h-auto block" />
           </div>
 
+          {/* RESET BUTTON */}
           <button
             onClick={() => {
               setCapturedImage(null);
@@ -160,7 +179,7 @@ export default function Home() {
             🔄 Scanner à nouveau
           </button>
 
-          {/* Parsed CNI Data */}
+          {/* ================== CNI FIELDS ================== */}
           {extractedData && (
             <div className="bg-white p-6 rounded-lg shadow border border-gray-200 w-full">
               <h2 className="text-xl font-bold mb-4 text-green-700 border-b pb-2">
@@ -178,7 +197,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* 🔥 Zone Viewer (Cropped zones + OCR) */}
+          {/* ================== ZONE VIEWER (cropped segments) ================== */}
           {zones.length > 0 && (
             <ZoneViewer zones={zones} images={zonesImages} />
           )}
