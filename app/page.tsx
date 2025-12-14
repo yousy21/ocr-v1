@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import CameraCapture from "../components/CameraCapture";
+import SmartScanner from "../components/SmartScanner";
 import { sendToOCR } from "../lib/ocrClient";
 import { extract_cni_data } from "../lib/extractCNI";
 import ZoneViewer from "../components/ZoneViewer";
@@ -123,7 +123,7 @@ export default function Home() {
             </>
           ) : (
             <>
-              <CameraCapture onCapture={handleUpload} />
+              <SmartScanner onCapture={handleUpload} />
               <button
                 onClick={() => setShowCamera(false)}
                 className="w-full py-3 bg-gray-500 text-white rounded-lg font-semibold hover:bg-gray-600"

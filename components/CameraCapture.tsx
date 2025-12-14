@@ -1,21 +1,157 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import cv from "@techstark/opencv-js";
+import { loadCV } from "@/lib/opencv";
 
 interface Props {
-    onCapture: (file: File) => void;
+    onScan: (file: File) => void;
 }
 
-export default function CameraCapture({ onCapture }: Props) {
+export default function CameraScanner({ onScan }: Props) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const overlayRef = useRef<HTMLCanvasElement>(null);
 
+    const [cvReady, setCvReady] = useState(false);
 
-    /* -------------------------------
-       AUTO CROP CNI FUNCTION
-    --------------------------------*/
-    const detectAndCropCNI = (mat: cv.Mat): cv.Mat | null => {
+    /* -------------------------------------------------------
+        1. Load OpenCV safely
+      ------------------------------------------------------- */
+    useEffect(() => {
+        const cv = loadCV();
+        if (cv && typeof cv.imread === 'function') setCvReady(true);
+    }, []);
+
+    /* -------------------------------------------------------
+        2. Start Camera (rear camera)
+      ------------------------------------------------------- */
+    useEffect(() => {
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: { ideal: "environment" },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                    },
+                    audio: false,
+                });
+
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                }
+            } catch (err) {
+                alert("Unable to access camera");
+            }
+        }
+
+        startCamera();
+    }, []);
+
+    /* -------------------------------------------------------
+        3. Live edge detection overlay (like CamScanner)
+      ------------------------------------------------------- */
+    useEffect(() => {
+        if (!cvReady) return;
+
+        const cv = loadCV();
+
+        const interval = setInterval(() => {
+            if (!videoRef.current || !overlayRef.current) return;
+
+            const video = videoRef.current;
+            const overlay = overlayRef.current;
+            const ctx = overlay.getContext("2d");
+
+            overlay.width = video.videoWidth;
+            overlay.height = video.videoHeight;
+
+            if (!ctx) return;
+
+            // Read video frame
+            const mat = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
+            const cap = new cv.VideoCapture(video);
+            cap.read(mat);
+
+            // Process: grayscale → blur → edges
+            let gray = new cv.Mat();
+            let blurred = new cv.Mat();
+            let edges = new cv.Mat();
+            let contours = new cv.MatVector();
+            let hierarchy = new cv.Mat();
+
+            cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
+            cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+            cv.Canny(blurred, edges, 60, 150);
+
+            cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+            // Clear overlay
+            ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+            // Draw largest 4-corner contour
+            let biggest = null;
+            let maxArea = 0;
+
+            for (let i = 0; i < contours.size(); i++) {
+                let cnt = contours.get(i);
+                let peri = cv.arcLength(cnt, true);
+
+                let approx = new cv.Mat();
+                cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
+
+                if (approx.rows === 4) {
+                    let area = cv.contourArea(cnt);
+                    if (area > maxArea) {
+                        maxArea = area;
+                        biggest = approx;
+                    }
+                }
+            }
+
+            if (biggest) {
+                ctx.strokeStyle = "#00ff00";
+                ctx.lineWidth = 4;
+
+                ctx.beginPath();
+                for (let i = 0; i < 4; i++) {
+                    const x = biggest.intAt(i, 0);
+                    const y = biggest.intAt(i, 1);
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.stroke();
+            }
+
+            mat.delete(); gray.delete(); blurred.delete(); edges.delete();
+            contours.delete(); hierarchy.delete();
+
+            if (biggest) biggest.delete();
+        }, 120);
+
+        return () => clearInterval(interval);
+    }, [cvReady]);
+
+    /* -------------------------------------------------------
+        4. Capture & Auto-Crop (Perspective Fix)
+      ------------------------------------------------------- */
+    const captureAndScan = async () => {
+        if (!videoRef.current || !canvasRef.current) return;
+
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext("2d");
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        ctx?.drawImage(video, 0, 0);
+
+        const cv = loadCV();
+        let mat = cv.imread(canvas);
+
+        // same detection as overlay but final crop
         let gray = new cv.Mat();
         let blurred = new cv.Mat();
         let edges = new cv.Mat();
@@ -23,8 +159,8 @@ export default function CameraCapture({ onCapture }: Props) {
         let hierarchy = new cv.Mat();
 
         cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
-        cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
-        cv.Canny(blurred, edges, 75, 200);
+        cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+        cv.Canny(blurred, edges, 60, 180);
 
         cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
@@ -37,7 +173,6 @@ export default function CameraCapture({ onCapture }: Props) {
             let approx = new cv.Mat();
             cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
 
-            // We want a 4-corner shape
             if (approx.rows === 4) {
                 let area = cv.contourArea(cnt);
                 if (area > biggestArea) {
@@ -48,156 +183,83 @@ export default function CameraCapture({ onCapture }: Props) {
         }
 
         if (!biggest) {
-            console.log("No CNI rectangle detected.");
-            return null;
+            alert("Impossible de détecter la CNI");
+            return;
         }
 
-        // Order points (OpenCV screws this up sometimes)
-        const getPoints = (mat: cv.Mat) => {
-            let pts = [];
-            for (let i = 0; i < 4; i++) pts.push({
-                x: mat.intAt(i, 0),
-                y: mat.intAt(i, 1)
-            });
+        // Order points
+        const pts = [];
+        for (let i = 0; i < 4; i++)
+            pts.push({ x: biggest.intAt(i, 0), y: biggest.intAt(i, 1) });
 
-            // Sort corners
-            pts.sort((a, b) => a.y - b.y);
-            const top = pts.slice(0, 2).sort((a, b) => a.x - b.x);
-            const bottom = pts.slice(2, 4).sort((a, b) => a.x - b.x);
+        pts.sort((a, b) => a.y - b.y);
+        const top = pts.slice(0, 2).sort((a, b) => a.x - b.x);
+        const bottom = pts.slice(2, 2).sort((a, b) => a.x - b.x);
 
-            return [top[0], top[1], bottom[0], bottom[1]];
-        };
+        const ordered = [top[0], top[1], bottom[0], bottom[1]];
 
-        let pts = getPoints(biggest);
-
-        // Output width/height based on ISO ratio
+        // CNI real ratio
         const CARD_RATIO = 1.586;
-        const width = 800;
-        const height = Math.round(width / CARD_RATIO);
+        const w = 900;
+        const h = Math.round(w / CARD_RATIO);
 
-        let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-            pts[0].x, pts[0].y,
-            pts[1].x, pts[1].y,
-            pts[2].x, pts[2].y,
-            pts[3].x, pts[3].y,
+        const src = cv.matFromArray(4, 1, cv.CV_32FC2, [
+            ordered[0].x, ordered[0].y,
+            ordered[1].x, ordered[1].y,
+            ordered[2].x, ordered[2].y,
+            ordered[3].x, ordered[3].y,
         ]);
 
-        let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+        const dst = cv.matFromArray(4, 1, cv.CV_32FC2, [
             0, 0,
-            width, 0,
-            0, height,
-            width, height,
+            w, 0,
+            0, h,
+            w, h,
         ]);
 
-        let M = cv.getPerspectiveTransform(srcTri, dstTri);
+        const M = cv.getPerspectiveTransform(src, dst);
+
         let output = new cv.Mat();
-        cv.warpPerspective(mat, output, M, new cv.Size(width, height));
+        cv.warpPerspective(mat, output, M, new cv.Size(w, h));
 
-        // Cleanup
-        gray.delete();
-        blurred.delete();
-        edges.delete();
-        contours.delete();
-        hierarchy.delete();
-        biggest.delete();
-        srcTri.delete();
-        dstTri.delete();
-        M.delete();
+        // ENHANCE (CamScanner style)
+        cv.cvtColor(output, output, cv.COLOR_RGBA2GRAY);
+        cv.equalizeHist(output, output);
 
-        return output;
-    };
+        // Convert to file
+        const tmp = document.createElement("canvas");
+        cv.imshow(tmp, output);
 
+        tmp.toBlob((blob) => {
+            if (!blob) return;
 
-
-    /* -------------------------------
-       CAMERA + CAPTURE
-    --------------------------------*/
-    useEffect(() => {
-        async function startCamera() {
-            let stream;
-
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: { exact: "environment" } },
-                    audio: false,
-                });
-            } catch {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "environment" },
-                    audio: false,
-                });
-            }
-
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-            }
-        }
-
-        startCamera();
-    }, []);
-
-    const capturePhoto = async () => {
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-
-        if (!video || !canvas) return;
-
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-
-        const ctx = canvas.getContext("2d");
-        ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        // Try auto-crop with OpenCV if available
-        if (typeof cv !== 'undefined' && cv.imread) {
-            try {
-                let mat = cv.imread(canvas);
-                let cropped = detectAndCropCNI(mat);
-                mat.delete();
-
-                if (cropped) {
-                    // Convert cropped to Blob
-                    const tmpCanvas = document.createElement("canvas");
-                    cv.imshow(tmpCanvas, cropped);
-                    cropped.delete();
-
-                    tmpCanvas.toBlob((blob) => {
-                        if (blob) {
-                            const file = new File([blob], "cni_cropped.jpg", { type: "image/jpeg" });
-                            onCapture(file);
-                        }
-                    }, "image/jpeg");
-                    return;
-                }
-            } catch (e) {
-                console.warn("Auto-crop failed, using full image:", e);
-            }
-        }
-
-        // Fallback: use the full captured image
-        canvas.toBlob((blob) => {
-            if (blob) {
-                const file = new File([blob], "cni_capture.jpg", { type: "image/jpeg" });
-                onCapture(file);
-            }
+            const file = new File([blob], "cni_scanned.jpg", { type: "image/jpeg" });
+            onScan(file);
         }, "image/jpeg");
+
+        // cleanup
+        mat.delete(); gray.delete(); blurred.delete(); edges.delete();
+        contours.delete(); hierarchy.delete(); biggest?.delete();
+        src.delete(); dst.delete(); M.delete(); output.delete();
     };
 
+    /* -------------------------------------------------------
+        UI
+      ------------------------------------------------------- */
     return (
-        <div className="flex flex-col items-center gap-4 w-full">
+        <div className="flex flex-col items-center w-full gap-4">
+            <div className="relative w-full max-w-lg">
+                <video ref={videoRef} autoPlay playsInline className="rounded-lg w-full shadow-lg" />
 
-            <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                className="w-full max-w-xl rounded-lg shadow-lg"
-            />
+                {/* Live overlay */}
+                <canvas ref={overlayRef} className="absolute top-0 left-0 w-full h-full pointer-events-none" />
+            </div>
 
             <button
-                onClick={capturePhoto}
-                className="px-6 py-3 bg-green-600 text-white font-bold rounded-lg shadow-md"
+                onClick={captureAndScan}
+                className="px-6 py-3 bg-green-600 text-white rounded-lg font-bold shadow-md active:scale-95"
             >
-                📸 AUTO-SCAN CNI
+                📸 Scanner automatiquement
             </button>
 
             <canvas ref={canvasRef} className="hidden" />
