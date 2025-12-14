@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            padding: 40px;
+            font-size: 14px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 22px;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        h2 {
+            margin-top: 30px;
+            font-size: 18px;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+        }
+
+        h3 {
+            margin-top: 20px;
+            font-size: 15px;
+        }
+
+        ul {
+            margin-top: 5px;
+            margin-bottom: 10px;
+        }
+
+        table {
+            width: 100%;
+            margin-top: 40px;
+        }
+
+        td {
+            text-align: center;
+            vertical-align: top;
+        }
+
+        .section {
+            margin-top: 15px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>CONTRAT DE LOCATION</h1>
+    <p style="text-align:center;">(Conformément à la législation algérienne)</p>
+
+    <h2>Entre les soussignés :</h2>
+
+    <h3>1. Le Bailleur :</h3>
+    <p>
+        <strong>Nom et prénom :</strong> {{BAILLEUR_GENDER}} {{BAILLEUR_NOM}} <br />
+        <strong>N° d'identité :</strong> {{BAILLEUR_CIN}} <br />
+        <strong>Date & lieu de naissance :</strong> {{BAILLEUR_BIRTH}} <br />
+        <strong>Adresse :</strong> {{BAILLEUR_ADDRESS}}
+    </p>
+
+    <h3>2. Le Locataire :</h3>
+    <p>
+        <strong>Nom et prénom :</strong> {{LOCATAIRE_GENDER}} {{LOCATAIRE_NOM}} <br />
+        <strong>N° d'identité :</strong> {{LOCATAIRE_CIN}} <br />
+        <strong>Date & lieu de naissance :</strong> {{LOCATAIRE_BIRTH}} <br />
+        <strong>Adresse :</strong> {{LOCATAIRE_ADDRESS}}
+    </p>
+
+    <h2>IL A ÉTÉ CONVENU CE QUI SUIT :</h2>
+
+    <h3>Article 1 : Objet du contrat</h3>
+    <p>
+        Le présent contrat a pour objet la location du bien immobilier situé à l’adresse suivante :
+        <strong>{{BIEN_ADDRESS}}</strong>. Il s’agit d’un logement destiné à un usage <strong>d’habitation</strong>.
+    </p>
+
+    <h3>Article 2 : Durée du contrat</h3>
+    <p>
+        La durée du bail est fixée à <strong>{{DUREE_MOIS}} mois</strong>, prenant effet à compter du
+        <strong>{{DATE_DEBUT}}</strong>.
+        Un renouvellement pourra être effectué par accord écrit entre les parties.
+    </p>
+
+    <h3>Article 3 : Montant du loyer</h3>
+    <p>
+        Le loyer mensuel est fixé à <strong>{{LOYER_MONTANT}} DZD</strong>. Le paiement s’effectue selon le mode suivant
+        :
+        <strong>{{MODE_PAIEMENT}}</strong>.
+    </p>
+
+    <h3>Article 4 : Dépôt de garantie</h3>
+    <p>
+        Le locataire verse un dépôt de garantie équivalent à <strong> {{DUREE_MOIS}} mois de loyer</strong> soit
+        <strong>{{LOYER_MONTANT}} DZD</strong>, restituable en fin de contrat sous réserve de l’état des lieux.
+    </p>
+
+    <h3>Article 5 : Obligations du locataire</h3>
+    <ul>
+        <li>Payer le loyer aux dates convenues.</li>
+        <li>Utiliser les lieux en bon père de famille.</li>
+        <li>Maintenir le logement en bon état.</li>
+        <li>Ne pas sous-louer sans autorisation écrite du bailleur.</li>
+    </ul>
+
+    <h3>Article 6 : Obligations du bailleur</h3>
+    <ul>
+        <li>Remettre un logement propre et conforme.</li>
+        <li>Assurer les réparations dues à la vétusté.</li>
+        <li>Garantir la jouissance paisible du locataire.</li>
+    </ul>
+
+    <h3>Article 7 : Résiliation</h3>
+    <p>
+        Le contrat pourra être résilié par l’une des parties en cas de non-respect d’une des obligations
+        prévues par le présent document, conformément à la loi algérienne.
+    </p>
+
+    <h3>Article 8 : État des lieux</h3>
+    <p>
+        Un état des lieux d’entrée et de sortie sera établi contradictoirement entre les deux parties.
+    </p>
+
+    <h3>Article 9 : Signature</h3>
+    <p>
+        Fait à <strong>{{VILLE}}</strong>, le <strong>{{DATE_SIGNATURE}}</strong>.
+    </p>
+
+    <table>
+        <tr>
+            <td>
+                <strong>Le Bailleur</strong><br /><br /><br /><br />
+                Signature
+            </td>
+            <td>
+                <strong>Le Locataire</strong><br /><br /><br /><br />
+                Signature
+            </td>
+        </tr>
+    </table>
+
+</body>
+
+</html>
