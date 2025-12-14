@@ -63,7 +63,7 @@ export default function CameraCapture({ onCapture }: Props) {
             // Sort corners
             pts.sort((a, b) => a.y - b.y);
             const top = pts.slice(0, 2).sort((a, b) => a.x - b.x);
-            const bottom = pts.slice(2, 2).sort((a, b) => a.x - b.x);
+            const bottom = pts.slice(2, 4).sort((a, b) => a.x - b.x);
 
             return [top[0], top[1], bottom[0], bottom[1]];
         };
@@ -148,27 +148,36 @@ export default function CameraCapture({ onCapture }: Props) {
         const ctx = canvas.getContext("2d");
         ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // Full frame -> OpenCV MAT
-        let mat = cv.imread(canvas);
+        // Try auto-crop with OpenCV if available
+        if (typeof cv !== 'undefined' && cv.imread) {
+            try {
+                let mat = cv.imread(canvas);
+                let cropped = detectAndCropCNI(mat);
+                mat.delete();
 
-        // AUTO CROP
-        let cropped = detectAndCropCNI(mat);
+                if (cropped) {
+                    // Convert cropped to Blob
+                    const tmpCanvas = document.createElement("canvas");
+                    cv.imshow(tmpCanvas, cropped);
+                    cropped.delete();
 
-        mat.delete();
-
-        if (!cropped) {
-            alert("❌ Unable to detect the CNI. Please align it inside the frame.");
-            return;
+                    tmpCanvas.toBlob((blob) => {
+                        if (blob) {
+                            const file = new File([blob], "cni_cropped.jpg", { type: "image/jpeg" });
+                            onCapture(file);
+                        }
+                    }, "image/jpeg");
+                    return;
+                }
+            } catch (e) {
+                console.warn("Auto-crop failed, using full image:", e);
+            }
         }
 
-        // Convert to Blob
-        const tmpCanvas = document.createElement("canvas");
-        cv.imshow(tmpCanvas, cropped);
-        cropped.delete();
-
-        tmpCanvas.toBlob((blob) => {
+        // Fallback: use the full captured image
+        canvas.toBlob((blob) => {
             if (blob) {
-                const file = new File([blob], "cni_cropped.jpg", { type: "image/jpeg" });
+                const file = new File([blob], "cni_capture.jpg", { type: "image/jpeg" });
                 onCapture(file);
             }
         }, "image/jpeg");
@@ -181,7 +190,7 @@ export default function CameraCapture({ onCapture }: Props) {
                 ref={videoRef}
                 autoPlay
                 playsInline
-                className="w-full max-w-xl rounded-lg shadow-lg rotate-90"
+                className="w-full max-w-xl rounded-lg shadow-lg"
             />
 
             <button

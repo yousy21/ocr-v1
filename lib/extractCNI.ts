@@ -1,5 +1,5 @@
-export function extract_cni_data(raw: string) {
-    const txt = raw.replace(/\n/g, " ");
+export function extract_cni_data(text: string) {
+    const clean = text.replace(/\n+/g, " ").trim();
 
     const data: any = {
         nni: null,
@@ -8,42 +8,75 @@ export function extract_cni_data(raw: string) {
         sexe: null,
         date_naissance: null,
         lieu_naissance: null,
-        date_emission: null,
-        date_expiration: null,
+        issue_date: null,
+        expiry_date: null,
         authority: null,
     };
 
-    // NNI
-    const nni = txt.match(/رقم التعريف الوطني\s*[: ]\s*(\d{18})/);
-    if (nni) data.nni = nni[1];
+    /* ---------------------------------------
+       1️⃣  NNI (18 digits)
+    ----------------------------------------*/
+    const nniMatch = clean.match(/\b(\d{18})\b/);
+    if (nniMatch) data.nni = nniMatch[1];
 
-    // Last name
-    const nom = txt.match(/اللقب\s*[: ]\s*([\u0600-\u06FF ]+)/);
-    if (nom) data.nom = nom[1].trim();
+    /* ---------------------------------------
+       2️⃣  Nom (اللقب)
+    ----------------------------------------*/
+    const nomMatch =
+        clean.match(/اللقب[: ]+([^\s]+)/) ||
+        clean.match(/اللقب[: ]+([^\n]+)/);
+    if (nomMatch) data.nom = nomMatch[1];
 
-    // First name
-    const prenom = txt.match(/الاسم\s*[: ]\s*([\u0600-\u06FF ]+)/);
-    if (prenom) data.prenom = prenom[1].trim();
+    /* ---------------------------------------
+       3️⃣  Prénom (الإسم)
+    ----------------------------------------*/
+    const prenomMatch =
+        clean.match(/الإسم[: ]+([^\s]+)/) ||
+        clean.match(/الإسم[: ]+([^\n]+)/);
+    if (prenomMatch) data.prenom = prenomMatch[1];
 
-    // Gender
-    const sexe = txt.match(/الجنس\s*[: ]\s*([\u0600-\u06FF]+)/);
-    if (sexe) data.sexe = sexe[1];
+    /* ---------------------------------------
+       4️⃣  Sexe (الجنس)
+    ----------------------------------------*/
+    const sexeMatch = clean.match(/الجنس[: ]+([^\s]+)/);
+    if (sexeMatch) data.sexe = sexeMatch[1];
 
-    // Birth date
-    const dob = txt.match(/تاريخ الميلاد\s*[: ]\s*(\d{4}\.\d{2}\.\d{2})/);
-    if (dob) data.date_naissance = dob[1];
+    /* ---------------------------------------
+       5️⃣ Date naissance (1995.04.21)
+    ----------------------------------------*/
+    const birthMatch =
+        clean.match(/تاريخ ال.?يلاد[: ]+(\d{4}.\d{2}.\d{2})/) ||
+        clean.match(/(\d{4}\.\d{2}\.\d{2})/);
+    if (birthMatch) data.date_naissance = birthMatch[1];
 
-    // Birth place
-    const lieu = txt.match(/مكان الميلاد\s*[: ]\s*([\u0600-\u06FF ]+)/);
-    if (lieu) data.lieu_naissance = lieu[1].trim();
+    /* ---------------------------------------
+       6️⃣ Lieu naissance (مكان الولادة)
+    ----------------------------------------*/
+    const lieuMatch =
+        clean.match(/مكان ال.?يلاد[: ]+([^\s\.]+)/) ||
+        clean.match(/مكان ال.?يلاد[: ]+([^\n]+)/);
+    if (lieuMatch) data.lieu_naissance = lieuMatch[1];
 
-    // Issue date
-    const issue = txt.match(/تاريخ الإصدار\s*[: ]\s*(\d{4}\.\d{2}\.\d{2})/);
-    if (issue) data.date_emission = issue[1];
+    /* ---------------------------------------
+       7️⃣ Issue date (تاريخ الإصدار)
+    ----------------------------------------*/
+    const issueMatch =
+        clean.match(/تاريخ الإصدار[: ]+(\d{4}.\d{2}.\d{2})/);
+    if (issueMatch) data.issue_date = issueMatch[1];
 
-    // Expiry date
-    const exp = txt.match(/تاريخ الإنتهاء\s*[: ]\s*(\d{4}\.\d{2}\.\d{2})/);
-    if (exp) data.date_expiration = exp[1];
+    /* ---------------------------------------
+       8️⃣ Expiry date (تاريخ الإنتهاء)
+    ----------------------------------------*/
+    const expiryMatch =
+        clean.match(/تاريخ الإنتهاء[: ]+(\d{4}.\d{2}.\d{2})/);
+    if (expiryMatch) data.expiry_date = expiryMatch[1];
+
+    /* ---------------------------------------
+       9️⃣ Authority (سلطة الإصدار)
+    ----------------------------------------*/
+    const authorityMatch =
+        clean.match(/سلطة الإصدار[: ]+([^\n]+)/);
+    if (authorityMatch) data.authority = authorityMatch[1];
 
     return data;
 }
